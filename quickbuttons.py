@@ -2,6 +2,9 @@
 QuickButtons - A modern, floating, always-on-top button panel for running scripts, opening websites, and playing music.
 Author: Rik Heijmann (https://Rik.blue)
 """
+from os import environ
+environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+
 # Import standard and third-party libraries
 import tkinter as tk
 from tkinter import filedialog, messagebox, colorchooser
@@ -86,6 +89,7 @@ APP_VERSION = "1.0.0"
 class QuickButtonsApp(tk.Tk):
     """Main application window for QuickButtons."""
     def __init__(self):
+        self.global_hotkeys = []  # Defensive: ensure this always exists before any method calls
         super().__init__()
         self.title(self._("QuickButtons"))
         self.config_data = self.load_config()
@@ -109,7 +113,6 @@ class QuickButtonsApp(tk.Tk):
         self.attributes("-alpha", self.config_data.get("translucency", 1.0))
         self._resize_after_id = None
         self.bind('<Configure>', self._on_window_configure)
-        self.global_hotkeys = []
         self.settings_dialog = None
         self.about_dialog = None
         self.button_settings_dialog = None
@@ -136,29 +139,52 @@ class QuickButtonsApp(tk.Tk):
 
     def create_topbar(self):
         """Create the top bar with add/settings/about/theme/pin buttons, using only icons."""
-        self.topbar = tk.Frame(self, bg=self.theme["topbar"], height=28)
+        self.topbar = tk.Frame(self, bg=self.theme["topbar"], height=22)
         self.topbar.pack(side=tk.TOP, fill=tk.X)
         # Add button (icon only)
-        self.add_btn = tk.Button(self.topbar, text="+", bg=self.theme["topbar"], fg=self.theme["button_fg"], font=("Segoe UI", 10, "bold"), relief=tk.FLAT, command=self.add_button, bd=0, highlightthickness=0, activebackground=self.theme["button_hover"], activeforeground=self.theme["button_fg"])
-        self.add_btn.pack(side=tk.RIGHT, padx=(0,2), pady=2, ipadx=2, ipady=0)
+        self.add_btn = tk.Button(self.topbar, text="+", bg=self.theme["topbar"], fg=self.theme["button_fg"], font=("Segoe UI", 13, "bold"), relief=tk.FLAT, command=self.add_button, bd=0, highlightthickness=0, activebackground=self.theme["button_hover"], activeforeground=self.theme["button_fg"])
+        self.add_btn.pack(side=tk.LEFT, padx=(2,0), pady=1, ipadx=1, ipady=0)
         self.add_btn.bind("<Enter>", lambda e: self.add_btn.config(bg=self.theme["button_hover"]))
         self.add_btn.bind("<Leave>", lambda e: self.add_btn.config(bg=self.theme["topbar"]))
+        self.add_btn_tooltip = Tooltip(self.add_btn, self._("Add new button"))
+        # File-explorer add button (icon only)
+        self.file_add_btn = tk.Button(self.topbar, text="📂", bg=self.theme["topbar"], fg=self.theme["button_fg"], font=("Segoe UI", 9, "bold"), relief=tk.FLAT, command=self.add_buttons_from_files, bd=0, highlightthickness=0, activebackground=self.theme["button_hover"], activeforeground=self.theme["button_fg"])
+        self.file_add_btn.pack(side=tk.LEFT, padx=(2,0), pady=1, ipadx=1, ipady=0)
+        self.file_add_btn.bind("<Enter>", lambda e: self.file_add_btn.config(bg=self.theme["button_hover"]))
+        self.file_add_btn.bind("<Leave>", lambda e: self.file_add_btn.config(bg=self.theme["topbar"]))
+        self.file_add_btn_tooltip = Tooltip(self.file_add_btn, self._("Add from file(s)"))
         # Theme toggle button (icon only)
-        self.theme_btn = tk.Button(self.topbar, text="☀" if self.theme_name=="light" else "🌙", bg=self.theme["topbar"], fg=self.theme["button_fg"], font=("Segoe UI", 10), relief=tk.FLAT, command=self.toggle_theme, bd=0, highlightthickness=0, activebackground=self.theme["button_hover"], activeforeground=self.theme["button_fg"])
-        self.theme_btn.pack(side=tk.RIGHT, padx=(0,2), pady=2)
+        self.theme_btn = tk.Button(self.topbar, text="☀" if self.theme_name=="light" else "🌙", bg=self.theme["topbar"], fg=self.theme["button_fg"], font=("Segoe UI", 9), relief=tk.FLAT, command=self.toggle_theme, bd=0, highlightthickness=0, activebackground=self.theme["button_hover"], activeforeground=self.theme["button_fg"])
+        self.theme_btn.pack(side=tk.RIGHT, padx=(0,2), pady=1)
+        self.theme_btn_tooltip = Tooltip(self.theme_btn, self._("Toggle theme"))
         # Pin (always on top) button
         self.always_on_top = self.config_data.get("always_on_top", True)
-        self.pin_btn = tk.Button(self.topbar, text="📌" if self.always_on_top else "📍", bg=self.theme["topbar"], fg=self.theme["button_fg"], font=("Segoe UI", 10), relief=tk.FLAT, command=self.toggle_on_top, bd=0, highlightthickness=0, activebackground=self.theme["button_hover"], activeforeground=self.theme["button_fg"])
-        self.pin_btn.pack(side=tk.RIGHT, padx=(0,2), pady=2)
-        Tooltip(self.pin_btn, self._("Keep on top") if self.always_on_top else self._("Do not keep on top"))
+        self.pin_btn = tk.Button(self.topbar, text="📌" if self.always_on_top else "📍", bg=self.theme["topbar"], fg=self.theme["button_fg"], font=("Segoe UI", 9), relief=tk.FLAT, command=self.toggle_on_top, bd=0, highlightthickness=0, activebackground=self.theme["button_hover"], activeforeground=self.theme["button_fg"])
+        self.pin_btn.pack(side=tk.RIGHT, padx=(0,2), pady=1)
+        self.pin_btn_tooltip = Tooltip(self.pin_btn, self._("Keep on top") if self.always_on_top else self._("Do not keep on top"))
         # Settings button (icon only)
-        self.settings_btn = tk.Button(self.topbar, text="⚙", bg=self.theme["topbar"], fg=self.theme["button_fg"], font=("Segoe UI", 10), relief=tk.FLAT, command=self.open_settings, bd=0, highlightthickness=0, activebackground=self.theme["button_hover"], activeforeground=self.theme["button_fg"])
-        self.settings_btn.pack(side=tk.RIGHT, padx=(0,2), pady=2)
+        self.settings_btn = tk.Button(self.topbar, text="⚙", bg=self.theme["topbar"], fg=self.theme["button_fg"], font=("Segoe UI", 9), relief=tk.FLAT, command=self.open_settings, bd=0, highlightthickness=0, activebackground=self.theme["button_hover"], activeforeground=self.theme["button_fg"])
+        self.settings_btn.pack(side=tk.RIGHT, padx=(0,2), pady=1)
+        self.settings_btn_tooltip = Tooltip(self.settings_btn, self._("Settings"))
         # About button (icon only)
-        self.about_btn = tk.Button(self.topbar, text="?", bg=self.theme["topbar"], fg=self.theme["button_fg"], font=("Segoe UI", 10), relief=tk.FLAT, command=self.open_about, bd=0, highlightthickness=0, activebackground=self.theme["button_hover"], activeforeground=self.theme["button_fg"])
-        self.about_btn.pack(side=tk.RIGHT, padx=(0,2), pady=2)
-        # Set initial always-on-top state
+        self.about_btn = tk.Button(self.topbar, text="?", bg=self.theme["topbar"], fg=self.theme["button_fg"], font=("Segoe UI", 9), relief=tk.FLAT, command=self.open_about, bd=0, highlightthickness=0, activebackground=self.theme["button_hover"], activeforeground=self.theme["button_fg"])
+        self.about_btn.pack(side=tk.RIGHT, padx=(0,2), pady=1)
+        self.about_btn_tooltip = Tooltip(self.about_btn, self._("About"))
         self.attributes("-topmost", self.always_on_top)
+
+    def update_topbar_tooltips(self):
+        if hasattr(self, "add_btn_tooltip"):
+            self.add_btn_tooltip.text = self._("Add new button")
+        if hasattr(self, "file_add_btn_tooltip"):
+            self.file_add_btn_tooltip.text = self._("Add from file(s)")
+        if hasattr(self, "theme_btn_tooltip"):
+            self.theme_btn_tooltip.text = self._("Toggle theme")
+        if hasattr(self, "pin_btn_tooltip"):
+            self.pin_btn_tooltip.text = self._("Keep on top") if self.always_on_top else self._("Do not keep on top")
+        if hasattr(self, "settings_btn_tooltip"):
+            self.settings_btn_tooltip.text = self._("Settings")
+        if hasattr(self, "about_btn_tooltip"):
+            self.about_btn_tooltip.text = self._("About")
 
     def toggle_on_top(self):
         """Toggle the always-on-top state and update the pin button."""
@@ -166,7 +192,7 @@ class QuickButtonsApp(tk.Tk):
         self.config_data["always_on_top"] = self.always_on_top
         self.attributes("-topmost", self.always_on_top)
         self.pin_btn.config(text="📌" if self.always_on_top else "📍")
-        Tooltip(self.pin_btn, self._("Keep on top") if self.always_on_top else self._("Do not keep on top"))
+        self.pin_btn_tooltip.text = self._("Keep on top") if self.always_on_top else self._("Do not keep on top")
     def create_button_grid(self):
         """Create the scrollable button grid area."""
         self.grid_canvas = tk.Canvas(self, bg=self.theme["bg"], highlightthickness=0, borderwidth=0)
@@ -258,12 +284,13 @@ class QuickButtonsApp(tk.Tk):
             left = (img.width - min_side) // 2
             top = (img.height - min_side) // 2
             img = img.crop((left, top, left+min_side, top+min_side))
-            img = img.resize((size-18, size-18), Image.ANTIALIAS)
+            img = img.resize((size-18, size-18), Image.LANCZOS)
             icon = ImageTk.PhotoImage(img)
         label = cfg.get("label", "Run Script")
         font_size = self.fit_font_size(label, size)
+        orig_bg = cfg.get("bg_color", self.theme["button_bg"])
         btn = tk.Button(parent, text=label, image=icon, compound=tk.TOP if icon else tk.NONE,
-                        bg=cfg.get("bg_color", self.theme["button_bg"]),
+                        bg=orig_bg,
                         fg=cfg.get("fg_color", self.theme["button_fg"]),
                         font=("Segoe UI", font_size, "bold"),
                         relief=tk.FLAT, bd=0, highlightthickness=0,
@@ -279,11 +306,12 @@ class QuickButtonsApp(tk.Tk):
         # Indicate if this button is currently playing music
         if cfg.get("type") == "music" and self.current_music_path == cfg.get("music") and pygame.mixer.music.get_busy():
             self._start_music_glow(btn)
-        # Tooltip for full label if truncated
-        if self.fit_font_size(label, size) < 10:
-            Tooltip(btn, label)
+        # Tooltip for full label if truncated or custom tooltip
+        tooltip_text = cfg.get("tooltip") or label
+        Tooltip(btn, tooltip_text)
         if cfg.get("shortcut"):
             Tooltip(btn, f"Shortcut: {cfg['shortcut']}")
+        btn.orig_bg = orig_bg  # Store for glow
         return btn
 
     def fit_font_size(self, text, size, max_font=16, min_font=7):
@@ -299,7 +327,6 @@ class QuickButtonsApp(tk.Tk):
         return font_size
 
     def run_script(self, cfg):
-        """Run the action for a button (script, website, music, post request, or shell command)."""
         t = cfg.get("type", "script")
         if t == "script":
             script = cfg.get("script")
@@ -308,8 +335,9 @@ class QuickButtonsApp(tk.Tk):
                 return
             args = self.expand_args(cfg.get("args", ""))
             ext = os.path.splitext(script)[1].lower()
+            label = cfg.get("label", "")
             if ext == ".py":
-                OutputOverlay(self, script, args)
+                OutputOverlay(self, script, args, btn_label=label)
             elif ext == ".sh":
                 import subprocess
                 try:
@@ -344,11 +372,16 @@ class QuickButtonsApp(tk.Tk):
             if not music or not os.path.isfile(music):
                 messagebox.showerror("Music not found", self._("No music file configured or file missing."))
                 return
+            self._ensure_mixer()
+            # Set current music path before stop check
+            self.current_music_path = music
             # Stop if same music is playing
-            if self.current_music_path == music and pygame.mixer.music.get_busy():
+            if pygame.mixer.music.get_busy() and self.current_music_path == music:
+                self._music_stopped_by_user = True
                 pygame.mixer.music.stop()
                 self._reset_music_button()
                 return
+            self._music_stopped_by_user = False
             # Stop previous music if any
             if pygame.mixer.music.get_busy():
                 pygame.mixer.music.stop()
@@ -356,11 +389,10 @@ class QuickButtonsApp(tk.Tk):
             # Find the button widget for this music
             btn = None
             for b, c in zip(self.button_widgets, self.config_data.get("buttons", [])):
-                if c is cfg:
+                if c.get("music") == music:
                     btn = b
                     break
             self.current_music_btn = btn
-            self.current_music_path = music
             if btn:
                 self._start_music_glow(btn)
             threading.Thread(target=self._play_music_and_reset, args=(music, btn), daemon=True).start()
@@ -400,18 +432,41 @@ class QuickButtonsApp(tk.Tk):
                 headers[k.strip()] = v.strip()
         return headers
 
+    def _ensure_mixer(self):
+        """Ensure pygame.mixer is initialized."""
+        try:
+            if not pygame.mixer.get_init():
+                pygame.mixer.init()
+        except Exception:
+            pass
+
+    def _blend_with_white(self, hex_color, factor=0.4):
+        """Blend a hex color with white by the given factor (0-1)."""
+        hex_color = hex_color.lstrip('#')
+        if len(hex_color) == 3:
+            hex_color = ''.join([c*2 for c in hex_color])
+        r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        r = int(r + (255 - r) * factor)
+        g = int(g + (255 - g) * factor)
+        b = int(b + (255 - b) * factor)
+        return f'#{r:02x}{g:02x}{b:02x}'
+
     def _start_music_glow(self, btn):
+        self._ensure_mixer()
         self._stop_music_glow()
         self._music_glow_state = False
+        orig_bg = getattr(btn, 'orig_bg', btn.cget("bg"))
+        glow_bg = self._blend_with_white(orig_bg, 0.4)
         def pulse():
             if not self.current_music_btn or not pygame.mixer.music.get_busy():
                 self._stop_music_glow()
+                btn.config(bg=orig_bg)
                 return
             self._music_glow_state = not self._music_glow_state
             if self._music_glow_state:
-                btn.config(highlightthickness=4, highlightbackground="#4a90e2")
+                btn.config(bg=glow_bg)
             else:
-                btn.config(highlightthickness=2, highlightbackground="#aee6ff")
+                btn.config(bg=orig_bg)
             self._music_glow_job = self.after(200, pulse)
         pulse()
 
@@ -420,7 +475,17 @@ class QuickButtonsApp(tk.Tk):
             self.after_cancel(self._music_glow_job)
             self._music_glow_job = None
         if self.current_music_btn:
-            self.current_music_btn.config(highlightthickness=0)
+            # Restore original color
+            orig_bg = self.current_music_btn.cget("bg")
+            cfg = None
+            for c in self.config_data.get("buttons", []):
+                if c.get("music") == self.current_music_path:
+                    cfg = c
+                    break
+            color = cfg.get("bg_color", self.theme["button_bg"]) if cfg else self.theme["button_bg"]
+            self.current_music_btn.config(bg=color)
+        self.current_music_btn = None
+        self.current_music_path = None
 
     def _play_music_and_reset(self, path, btn):
         try:
@@ -429,12 +494,17 @@ class QuickButtonsApp(tk.Tk):
             pygame.mixer.music.set_volume(volume)
             pygame.mixer.music.load(path)
             pygame.mixer.music.play()
+            # Start glow after playback begins
+            if btn:
+                self.after(100, lambda: self._start_music_glow(btn))
             while pygame.mixer.music.get_busy():
                 import time; time.sleep(0.1)
         except Exception as e:
             messagebox.showerror("Music Error", f"Could not play music: {e}")
         finally:
-            self.after(100, self._reset_music_button)
+            # Only reset if not stopped by user
+            if not getattr(self, '_music_stopped_by_user', False):
+                self.after(100, self._reset_music_button)
 
     def _reset_music_button(self):
         self._stop_music_glow()
@@ -467,6 +537,80 @@ class QuickButtonsApp(tk.Tk):
         self.button_settings_dialog = ButtonSettingsDialog(self, self.theme, on_save=self._on_button_settings_save)
         self.button_settings_dialog.protocol("WM_DELETE_WINDOW", self._on_button_settings_close)
 
+    def add_buttons_from_files(self):
+        """Open file dialog, auto-detect type, and add buttons for selected files."""
+        file_paths = filedialog.askopenfilenames(title=self._("Select files to add as buttons"))
+        for file_path in file_paths:
+            ext = os.path.splitext(file_path)[1].lower()
+            label = os.path.basename(file_path)
+            btn_cfg = None
+            if ext in [".mp3", ".wav", ".ogg"]:
+                btn_cfg = {
+                    "type": "music",
+                    "label": label,
+                    "music": file_path,
+                    "bg_color": self.theme["button_bg"],
+                    "fg_color": self.theme["button_fg"]
+                }
+            elif ext == ".py":
+                btn_cfg = {
+                    "type": "script",
+                    "label": label,
+                    "script": file_path,
+                    "bg_color": self.theme["button_bg"],
+                    "fg_color": self.theme["button_fg"]
+                }
+            elif ext in [".bat", ".cmd", ".sh"]:
+                btn_cfg = {
+                    "type": "shell",
+                    "label": label,
+                    "shell_cmd": file_path,
+                    "bg_color": self.theme["button_bg"],
+                    "fg_color": self.theme["button_fg"]
+                }
+            elif ext in [".url", ".webloc", ".desktop", ".lnk", ".html", ".htm"]:
+                # Try to extract URL from file, fallback to file path
+                url = file_path
+                try:
+                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                        content = f.read()
+                        import re
+                        match = re.search(r"https?://[\w\.-/]+", content)
+                        if match:
+                            url = match.group(0)
+                except Exception:
+                    pass
+                btn_cfg = {
+                    "type": "website",
+                    "label": label,
+                    "url": url,
+                    "bg_color": self.theme["button_bg"],
+                    "fg_color": self.theme["button_fg"]
+                }
+            else:
+                # Default: treat as script if executable, else as file opener
+                if os.access(file_path, os.X_OK):
+                    btn_cfg = {
+                        "type": "shell",
+                        "label": label,
+                        "shell_cmd": file_path,
+                        "bg_color": self.theme["button_bg"],
+                        "fg_color": self.theme["button_fg"]
+                    }
+                else:
+                    # Fallback: open with default app
+                    btn_cfg = {
+                        "type": "shell",
+                        "label": label,
+                        "shell_cmd": f'"{file_path}"',
+                        "bg_color": self.theme["button_bg"],
+                        "fg_color": self.theme["button_fg"]
+                    }
+            if btn_cfg:
+                self.config_data.setdefault("buttons", []).append(btn_cfg)
+        self.save_config()
+        self.refresh_grid()
+
     def _on_button_settings_save(self, btn_cfg):
         self.save_new_button(btn_cfg)
         self._on_button_settings_close()
@@ -489,8 +633,21 @@ class QuickButtonsApp(tk.Tk):
         if self.button_settings_dialog is not None and self.button_settings_dialog.winfo_exists():
             self.button_settings_dialog.lift()
             return
-        idx = self.config_data["buttons"].index(btn_cfg)
-        self.button_settings_dialog = ButtonSettingsDialog(self, self.theme, btn_cfg, lambda new_cfg: self._on_edit_button_settings_save(idx, new_cfg), allow_delete=True)
+        # Find index by matching a unique property (e.g., label+type+script/music/url)
+        idx = None
+        for i, c in enumerate(self.config_data["buttons"]):
+            if c is btn_cfg or (
+                c.get("label") == btn_cfg.get("label") and
+                c.get("type") == btn_cfg.get("type") and
+                c.get("script", None) == btn_cfg.get("script", None) and
+                c.get("music", None) == btn_cfg.get("music", None) and
+                c.get("url", None) == btn_cfg.get("url", None)
+            ):
+                idx = i
+                break
+        if idx is None:
+            return  # Button not found
+        self.button_settings_dialog = ButtonSettingsDialog(self, self.theme, self.config_data["buttons"][idx], lambda new_cfg: self._on_edit_button_settings_save(idx, new_cfg), allow_delete=True)
         self.button_settings_dialog.protocol("WM_DELETE_WINDOW", self._on_button_settings_close)
 
     def _on_edit_button_settings_save(self, idx, new_cfg):
@@ -519,17 +676,16 @@ class QuickButtonsApp(tk.Tk):
         """Apply the current theme to the main window and widgets."""
         self.configure(bg=self.theme["bg"])
         self.topbar.config(bg=self.theme["topbar"])
-        # Unified styling for all main menu buttons (icon only)
-        for btn in [self.add_btn, self.theme_btn, self.settings_btn, self.about_btn, self.pin_btn]:
+        for btn in [self.add_btn, self.theme_btn, self.settings_btn, self.about_btn, self.pin_btn, self.file_add_btn]:
             btn.config(
                 bg=self.theme["topbar"], fg=self.theme["button_fg"],
                 activebackground=self.theme["button_hover"], activeforeground=self.theme["button_fg"]
             )
         self.theme_btn.config(text="☀" if self.theme_name=="light" else "🌙")
         self.pin_btn.config(text="📌" if self.always_on_top else "📍")
-        Tooltip(self.pin_btn, self._("Keep on top") if self.always_on_top else self._("Do not keep on top"))
         self.grid_frame.config(bg=self.theme["bg"])
         self.grid_canvas.config(bg=self.theme["bg"])
+        self.update_topbar_tooltips()
 
     def load_config(self):
         """Load configuration from the config file, or return defaults if missing/corrupt."""
@@ -597,6 +753,8 @@ class QuickButtonsApp(tk.Tk):
 
     def unregister_global_hotkeys(self):
         """Remove all registered global hotkeys."""
+        if not hasattr(self, "global_hotkeys"):
+            self.global_hotkeys = []
         if HAS_KEYBOARD:
             for hotkey in self.global_hotkeys:
                 try:
@@ -609,31 +767,67 @@ QuickButtonsApp._ = _
 
 class OutputOverlay(tk.Toplevel):
     """A floating window to show script output and handle input."""
-    def __init__(self, master, script_path, args=None):
+    def __init__(self, master, script_path, args=None, btn_label=None):
         super().__init__(master)
-        self.title(self._("Script Output"))
-        self.geometry("600x320+200+200")
+        self.master = master
+        # Show label in title bar
+        title = master._("Script Output")
+        if btn_label:
+            title = f"{title} - {btn_label}"
+        self.title(title)
+        self.geometry("600x220+200+200")
         self.configure(bg=master.theme["bg"])
         self.attributes("-topmost", True)
-        self.text = tk.Text(self, bg=master.theme["bg"], fg=master.theme["button_fg"], insertbackground=master.theme["button_fg"], font=("Consolas", 11))
-        self.text.pack(fill=tk.BOTH, expand=True)
+        main_frame = tk.Frame(self, bg=master.theme["bg"])
+        main_frame.grid(row=0, column=0, sticky="nsew")
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+        main_frame.grid_rowconfigure(0, weight=1)
+        main_frame.grid_columnconfigure(0, weight=1)
+        text_frame = tk.Frame(main_frame, bg=master.theme["bg"])
+        text_frame.grid(row=0, column=0, sticky="nsew")
+        main_frame.grid_rowconfigure(0, weight=1)
+        main_frame.grid_columnconfigure(0, weight=1)
+        self.text_scrollbar = tk.Scrollbar(text_frame, orient=tk.VERTICAL)
+        self.text_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.text = tk.Text(text_frame, bg=master.theme["bg"], fg=master.theme["button_fg"], insertbackground=master.theme["button_fg"], font=("Consolas", 11), state="disabled", yscrollcommand=self.text_scrollbar.set)
+        self.text.grid(row=0, column=0, sticky="nsew")
+        text_frame.grid_rowconfigure(0, weight=1)
+        text_frame.grid_columnconfigure(0, weight=1)
+        self.text_scrollbar.config(command=self.text.yview)
         self.input_var = tk.StringVar()
-        self.input_entry = tk.Entry(self, textvariable=self.input_var, bg=master.theme["bg"], fg=master.theme["button_fg"], insertbackground=master.theme["button_fg"], font=("Consolas", 11))
-        self.input_entry.pack(fill=tk.X, side=tk.BOTTOM)
+        self.input_entry = tk.Entry(main_frame, textvariable=self.input_var, bg=master.theme["bg"], fg=master.theme["button_fg"], insertbackground=master.theme["button_fg"], font=("Consolas", 11))
+        self.input_entry.grid(row=1, column=0, sticky="ew", padx=0, pady=0)
+        main_frame.grid_rowconfigure(1, weight=0)
         self.input_entry.bind("<Return>", self.send_input)
-        self.input_entry.pack_forget()
+        self.input_placeholder = master._("Type your input here...")
+        self._set_input_placeholder()
+        self.input_entry.bind("<FocusIn>", self._clear_input_placeholder)
+        self.input_entry.bind("<FocusOut>", self._set_input_placeholder)
         self.proc = None
         self.waiting_for_input = False
         self.protocol("WM_DELETE_WINDOW", self.close)
+        self._error_occurred = False
         self.run_script(script_path, args or [])
 
     def run_script(self, script_path, args):
-        """Start the script as a subprocess and begin reading output."""
+        self.text.config(state="normal")
         self.text.delete(1.0, tk.END)
+        self.text.config(state="disabled")
         try:
-            self.proc = subprocess.Popen([sys.executable, script_path] + args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+            import os
+            cmd = [sys.executable, '-u', script_path] + args if script_path.endswith('.py') else [script_path] + args
+            env = os.environ.copy()
+            env["PYTHONIOENCODING"] = "utf-8"
+            self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, encoding="utf-8", env=env)
         except Exception as e:
-            self.text.insert(tk.END, f"Error: {e}\n")
+            self.text.config(state="normal")
+            self.text.insert(tk.END, f"{self.master._('Error:')} {e}\n")
+            self.text.config(state="disabled")
+            self.input_entry.config(state="disabled")
+            self._error_occurred = True
+            self.title(self.title() + " - ERROR")
+            messagebox.showerror(self.master._("Error"), str(e))
             return
         self.waiting_for_input = False
         threading.Thread(target=self.read_output, daemon=True).start()
@@ -641,22 +835,45 @@ class OutputOverlay(tk.Toplevel):
         self.lift()
 
     def read_output(self):
-        """Read output from the script and display it. Show input box if needed."""
-        for line in self.proc.stdout:
-            self.text.insert(tk.END, line)
-            self.text.see(tk.END)
-            if line.strip().endswith((':', '?')):
-                self.waiting_for_input = True
-                self.input_entry.pack(fill=tk.X, side=tk.BOTTOM)
-                self.input_entry.focus_set()
-        self.proc.wait()
-        self.input_entry.pack_forget()
-        self.waiting_for_input = False
-        self.after(500, self.close)
+        error_occurred = False
+        try:
+            for line in self.proc.stdout:
+                self.text.config(state="normal")
+                self.text.insert(tk.END, line)
+                self.text.see(tk.END)
+                self.text.config(state="disabled")
+                self.text.yview_moveto(1.0)
+            exit_code = self.proc.wait()
+            if exit_code != 0:
+                error_occurred = True
+        except Exception as e:
+            self.text.config(state="normal")
+            self.text.insert(tk.END, f"\n{self.master._('Error:')} {e}\n")
+            self.text.config(state="disabled")
+            self.input_entry.config(state="disabled")
+            self._error_occurred = True
+            self.title(self.title() + " - ERROR")
+            messagebox.showerror(self.master._("Error"), str(e))
+            return
+        self.input_entry.config(state="disabled")
+        if not self.text.get("1.0", tk.END).strip():
+            self.text.config(state="normal")
+            self.text.insert(tk.END, self.master._("(No output)"))
+            self.text.config(state="disabled")
+            self.text.yview_moveto(1.0)
+        # Only close if no error occurred
+        if error_occurred or self._error_occurred:
+            if " - ERROR" not in self.title():
+                self.title(self.title() + " - ERROR")
+        else:
+            # Remove ERROR if present (shouldn't be, but for safety)
+            if " - ERROR" in self.title():
+                self.title(self.title().replace(" - ERROR", ""))
+            self.after(500, self.close)
 
     def send_input(self, event=None):
         """Send user input to the script's stdin."""
-        if self.proc and self.waiting_for_input:
+        if self.proc and self.proc.poll() is None:
             user_input = self.input_var.get() + '\n'
             try:
                 self.proc.stdin.write(user_input)
@@ -664,14 +881,23 @@ class OutputOverlay(tk.Toplevel):
             except Exception:
                 pass
             self.input_var.set("")
-            self.input_entry.pack_forget()
-            self.waiting_for_input = False
 
     def close(self):
         """Close the overlay and terminate the script if running."""
         if self.proc and self.proc.poll() is None:
             self.proc.terminate()
         self.withdraw()
+
+    def _set_input_placeholder(self, event=None):
+        if not self.input_var.get():
+            self.input_entry.delete(0, tk.END)
+            self.input_entry.insert(0, self.input_placeholder)
+            self.input_entry.config(fg="#888888")
+
+    def _clear_input_placeholder(self, event=None):
+        if self.input_entry.get() == self.input_placeholder:
+            self.input_entry.delete(0, tk.END)
+            self.input_entry.config(fg=self.master.theme["button_fg"])
 
 class ButtonSettingsDialog(tk.Toplevel):
     """Dialog for adding/editing a button. Now scrollable and resizable."""
@@ -712,6 +938,8 @@ class ButtonSettingsDialog(tk.Toplevel):
         self.fg_color = self.btn_cfg.get("fg_color", theme["button_fg"])
         self.insert_before_var = tk.StringVar()
         self._init_insert_before_options()
+        self.tooltip_var = tk.StringVar(value=self.btn_cfg.get("tooltip", ""))
+        self._init_insert_before_options()
         self.build_ui(allow_delete)
         # Set POST fields if editing
         if btn_cfg:
@@ -751,6 +979,10 @@ class ButtonSettingsDialog(tk.Toplevel):
         emoji_btn = tk.Button(label_frame, text="😊", width=2, command=lambda: self.open_emoji_picker(label_entry), bg=self.theme["button_bg"], fg=self.theme["button_fg"], relief=tk.FLAT)
         emoji_btn.pack(side=tk.LEFT, padx=(4,0))
         Tooltip(emoji_btn, self.master._("Pick emoji"))
+        # Tooltip (optional) - just underneath label
+        tk.Label(f, text=self.master._("Tooltip (optional):"), bg=self.theme["dialog_bg"], fg=self.theme["label_fg"]).pack(anchor="w", padx=10, pady=(6,0))
+        tooltip_entry = tk.Entry(f, textvariable=self.tooltip_var)
+        tooltip_entry.pack(padx=10, fill=tk.X)
         # Icon Path - second
         tk.Label(f, text=self.master._("Icon Path:"), bg=self.theme["dialog_bg"], fg=self.theme["label_fg"]).pack(anchor="w", padx=10, pady=(10,0))
         icon_entry = tk.Entry(f, textvariable=self.icon_var)
@@ -834,15 +1066,20 @@ class ButtonSettingsDialog(tk.Toplevel):
         self.post_body_label = tk.Label(self.dynamic_frame, text=self.master._("Body (optional):"), bg=self.theme["dialog_bg"], fg=self.theme["label_fg"])
         self.post_body_text = tk.Text(self.dynamic_frame, height=3, width=30)
         # --- End dynamic fields ---
-        # Save/Delete buttons (already at the end)
+        # Save/Delete/Duplicate buttons (already at the end)
         btn_frame = tk.Frame(f, bg=self.theme["dialog_bg"])
         btn_frame.pack(pady=12, padx=10, fill=tk.X)
         save_btn = tk.Button(btn_frame, text="💾", command=self.save, bg=self.theme["button_bg"], fg=self.theme["button_fg"], font=("Segoe UI", 12, "bold"), relief=tk.FLAT, height=1, width=2)
         save_btn.pack(side=tk.LEFT, expand=True, fill=tk.X, ipadx=0, ipady=2)
         Tooltip(save_btn, self.master._("Save"))
+        # Duplicate button
+        dup_btn = tk.Button(btn_frame, text="⧉", command=self.duplicate, bg=self.theme["button_bg"], fg=self.theme["button_fg"], font=("Segoe UI", 12, "bold"), relief=tk.FLAT, height=1, width=2)
+        dup_btn.pack(side=tk.LEFT, expand=True, fill=tk.X, ipadx=0, ipady=2, padx=(8,0))
+        Tooltip(dup_btn, self.master._("Duplicate"))
         if allow_delete:
             del_btn = tk.Button(btn_frame, text="🗑️", command=self.delete, bg="#a33", fg="white", font=("Segoe UI", 12, "bold"), relief=tk.FLAT, height=1, width=2)
             del_btn.pack(side=tk.LEFT, expand=True, fill=tk.X, ipadx=0, ipady=2, padx=(8,0))
+            Tooltip(del_btn, self.master._("Delete"))
         self.update_fields()
 
     def _add_header_row(self, key='', value=''):
@@ -1017,6 +1254,7 @@ class ButtonSettingsDialog(tk.Toplevel):
         cfg = {
             "type": self.type_var.get(),
             "label": self.label_var.get(),
+            "tooltip": self.tooltip_var.get(),
             "shortcut": self.shortcut_var.get(),
             "args": self.args_var.get(),
             "script": self.script_var.get(),
@@ -1030,32 +1268,6 @@ class ButtonSettingsDialog(tk.Toplevel):
             "post_body": self.post_body_text.get("1.0", tk.END).strip() if self.type_var.get() == "post" else "",
             "shell_cmd": self.shell_var.get() if self.type_var.get() == "shell" else ""
         }
-        # Determine insert position
-        btns = self.master.config_data.get("buttons", [])
-        insert_idx = len(btns)  # default: at end
-        selected = self.insert_before_var.get()
-        if selected != self.master._("At end"):
-            for idx, opt in enumerate(self.insert_before_options):
-                if opt == selected:
-                    insert_idx = idx
-                    break
-        if self.btn_cfg and self.btn_cfg in btns:
-            # Editing: move to new position if changed
-            old_idx = btns.index(self.btn_cfg)
-            if old_idx != insert_idx:
-                btns.pop(old_idx)
-                if insert_idx > old_idx:
-                    insert_idx -= 1
-            btns.insert(insert_idx, cfg)
-            self.master.config_data["buttons"] = btns
-            self.master.save_config()
-            self.master.refresh_grid()
-        else:
-            # Adding: insert at position
-            btns.insert(insert_idx, cfg)
-            self.master.config_data["buttons"] = btns
-            self.master.save_config()
-            self.master.refresh_grid()
         if self.on_save:
             self.on_save(cfg)
         self.destroy()
@@ -1065,6 +1277,39 @@ class ButtonSettingsDialog(tk.Toplevel):
         if self.on_save:
             self.on_save(None)
         self.destroy()
+
+    def duplicate(self):
+        """Duplicate this button and add it as a new button."""
+        cfg = {
+            "type": self.type_var.get(),
+            "label": self.label_var.get(),
+            "tooltip": self.tooltip_var.get(),
+            "shortcut": self.shortcut_var.get(),
+            "args": self.args_var.get(),
+            "script": self.script_var.get(),
+            "url": self.url_var.get(),
+            "music": self.music_var.get(),
+            "icon": self.icon_var.get(),
+            "bg_color": self.bg_color,
+            "fg_color": self.fg_color,
+            "post_url": self.post_url_entry.get() if self.type_var.get() == "post" else "",
+            "post_headers": '' if self.type_var.get() != "post" else self._collect_headers(),
+            "post_body": self.post_body_text.get("1.0", tk.END).strip() if self.type_var.get() == "post" else "",
+            "shell_cmd": self.shell_var.get() if self.type_var.get() == "shell" else ""
+        }
+        self.master.config_data.setdefault("buttons", []).append(cfg)
+        self.master.save_config()
+        self.master.refresh_grid()
+        self.destroy()
+
+    def _collect_headers(self):
+        headers_str = ''
+        for _, key_var, value_var in self.header_rows:
+            k = key_var.get().strip()
+            v = value_var.get().strip()
+            if k:
+                headers_str += f"{k}: {v}\n"
+        return headers_str.strip()
 
     def _setup_post_body_highlighting(self):
         # Only bind if the widget exists
@@ -1105,7 +1350,7 @@ class ButtonSettingsDialog(tk.Toplevel):
             "🖥️", "🌐", "🎵", "📤", "⚡", "🔗", "📝", "🔊", "⭐", "❓", "✅", "❌", "🕒", "📅", "🔒", "🔓"
         ]
         picker = tk.Toplevel(self)
-        picker.title(self.master._("Pick an emoji"))
+        picker.title(self.master._("Pick emoji"))
         picker.transient(self)
         picker.resizable(False, False)
         picker.configure(bg=self.theme["dialog_bg"])

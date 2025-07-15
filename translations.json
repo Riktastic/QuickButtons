@@ -58,7 +58,15 @@
     "No shell command configured.": "No shell command configured.",
     "Shell Output": "Shell Output",
     "Shell Error": "Shell Error",
-    "(No output)": "(No output)"
+    "(No output)": "(No output)",
+    "Add new button": "Add new button",
+    "Add from file(s)": "Add from file(s)",
+    "Toggle theme": "Toggle theme",
+    "Type your input here...": "Type your input here...",
+    "Tooltip (optional):": "Tooltip (optional):",
+    "Duplicate": "Duplicate",
+    "Pick emoji": "Pick emoji",
+    "Delete": "Delete"
   },
   "nl": {
     "QuickButtons": "QuickButtons",
@@ -119,6 +127,14 @@
     "No shell command configured.": "Geen shellcommando ingesteld.",
     "Shell Output": "Shell-uitvoer",
     "Shell Error": "Shell-fout",
-    "(No output)": "(Geen uitvoer)"
+    "(No output)": "(Geen uitvoer)",
+    "Add new button": "Nieuwe knop toevoegen",
+    "Add from file(s)": "Toevoegen vanuit bestand(en)",
+    "Toggle theme": "Thema wisselen",
+    "Type your input here...": "Typ hier uw invoer...",
+    "Tooltip (optional):": "Tooltip (optioneel):",
+    "Duplicate": "Dupliceren",
+    "Pick emoji": "Kies emoji",
+    "Delete": "Verwijderen"
   }
 } 
