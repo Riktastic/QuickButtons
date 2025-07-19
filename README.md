@@ -79,6 +79,6 @@ MIT License - see LICENSE file for details.
 
 ## Support
 
-For issues and questions, please use the [GitHub Issues](https://github.com/rikheijmann/quickbuttons/issues) page. 
+For issues and questions, please use the [GitHub Issues](https://github.com/riktastic/quickbuttons/issues) page. 
 
 Feel free to recommend new features (such as automatically hiding the button pane), grouping items and suggesting new buttons.
