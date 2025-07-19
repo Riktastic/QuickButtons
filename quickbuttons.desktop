@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=QuickButtons
-Comment=Floating button panel for running Python scripts
-Exec=python3 /home/rik/QuickButtons/main.py
-Icon=/home/rik/QuickButtons/quickbuttons.png
-Terminal=false
-Categories=Utility; 

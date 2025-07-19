@@ -1,100 +1,84 @@
 # QuickButtons
 
-QuickButtons is a modern, floating, always-on-top button panel for running scripts, opening websites, playing music, and sending POST requests. It features a modern UI, persistent settings, multilingual support (English/Dutch), and a grid of fully configurable buttons.
+![QuickButtons Logo](assets/quickbuttons.png)
+
+A simple button panel application that allows users to run programs, Python scripts, play music, and chat with LLMs. The application provides a floating, always-on-top interface for quick access to frequently used actions.
+
+**Please note!** This project was created to test the limit of Cursor.com. (It took about 250 requests). I had a hard time getting it how I wanted it to be. It started to completely rewrite its code.
+
+The AI's code has been thoroughly checked and corrected. The complexity of this project might have suited a different programming language a lot better. But it runs fine on multiple operating systems and start rather quickly.
+
+
+## Overview
+
+QuickButtons is a desktop utility that creates a customizable button grid. Each button can be configured to perform different actions such as opening applications, executing scripts, setting timers (including a pomodoro option), performing network tests, opening websites, playing audio files, or initiating LLM conversations. The application supports both light and dark themes and can operate in a minimal mode without window decorations.
+
+## Screenshots
+
+![Light Theme](docs/light.png)
+![Dark Theme](docs/minimal-dark.png)
+![Minimal Mode](docs/minimal-white.png)
+![LLM Chat](docs/ai.png)
 
 ## Features
-- Persistent settings (geometry, theme, language, translucency, button size, volume)
-- Modern, themeable UI with ttk widgets
-- Button types: Run Script, Open Website, Play Music, POST Request
-- Add/Edit/Delete buttons with context-aware dialogs
-- Drag-and-drop (dropdown) button ordering
-- Keyboard shortcut support
-- Full translation and theming via JSON
-- Error handling and user feedback
 
-## Command Line Options
+The application supports Python scripts, website opening, music playback, POST requests, shell commands, LLM chat using litellm (Azure OpenAI support), and countdown timers with sound notifications.
 
-You can specify a custom configuration file or get help from the command line:
+## Installation
 
-```sh
-python quickbuttons.py --config myconfig.json   # Use a custom config file
-python quickbuttons.py -c myconfig.json         # Short form
-python quickbuttons.py --help                   # Show help and options
+### From Source
+```bash
+git clone https://github.com/rikheijmann/quickbuttons.git
+cd quickbuttons
+pip install -r requirements.txt
+python src/main.py
 ```
 
-If not specified, the app uses `config.json` by default.
+### Building
+```bash
+# Activate virtual environment
+python -m venv venv
+venv\Scripts\activate
 
-## Compiling to a Windows Executable
+# Install build dependencies
+pip install -r requirements-build.txt
 
-You can compile QuickButtons into a standalone Windows executable using [PyInstaller](https://pyinstaller.org/). This will bundle all dependencies and data files (including translations and themes) into a single `.exe` file.
+# Build executable
+pyinstaller QuickButtons.spec
+```
 
-### Prerequisites
-- Python 3.8+ (with Tkinter support; included by default in most Python installers)
-- pip
-- PyInstaller (`pip install pyinstaller`)
+The executable will be created in the `dist` folder.
 
-> **Note:** Tkinter is required for the GUI. It is included with most standard Python installations. If you encounter errors about missing `tkinter`, please ensure your Python was installed with Tk support.
+You can can also use one of the two command line script (build-linux.sh or build-windows.bat), which do essentially do the same.
 
-### Steps
-1. **Clone or copy this repository to your Windows machine.**
-2. **Install PyInstaller:**
-   ```sh
-   pip install pyinstaller
-   ```
-3. **Build the executable:**
-   - Using a one-liner (no icon):
-     ```sh
-     pyinstaller --onefile --windowed --add-data "translations.json;." --add-data "themes.json;." quickbuttons.py
-     ```
-   - Or use the provided batch/sh script (see below).
-   - If you want a custom icon, add `--icon quickbuttons.ico` (if you have one).
-4. **Find your executable in the `dist` folder.**
+## Configuration
 
-### Including Data Files
-- The `--add-data` option ensures `translations.json` and `themes.json` are bundled with the executable.
-- On Windows, separate source and destination with a semicolon (`;`).
-- On Linux/Mac, use a colon (`:`).
+QuickButtons stores configuration in several files:
 
-### Using the Provided Scripts
-- On Windows, run `build_win.bat`.
-- On Linux/Mac, run `build_win.sh` (requires Wine and Python for Windows).
+**`config/quickbuttons.json`**: Main application settings including window position, theme preferences, button configurations, and user preferences
 
----
+**`assets/themes.json`**: Theme definitions for light and dark modes
 
-## Compiling with Cython and PyInstaller
+**`assets/translations.json`**: Language translations (English and Dutch)
 
-For extra performance and code protection, you can compile QuickButtons with [Cython](https://cython.org/) before packaging with PyInstaller.
+Configuration files are automatically created on first run. Users can modify these files directly or use the built-in settings dialog accessible through the application interface.
 
-### Prerequisites
-- Cython (`pip install cython`)
-- A C compiler (e.g., MSVC on Windows, gcc/clang on Linux/Mac)
-- PyInstaller
+## Usage
 
-### Steps
-1. **Install Cython:**
-   ```sh
-   pip install cython
-   ```
-2. **Compile quickbuttons.py to C and build the extension:**
-   ```sh
-   cythonize -3 --embed -i quickbuttons.py
-   ```
-   This will produce a compiled executable (e.g., `quickbuttons` or `quickbuttons.exe`).
+Launch the application and configure buttons through the settings interface. Each button can be customized with icons, labels, and specific action parameters. The application remembers window position and user preferences between sessions.
 
-   Or, to generate a C file and then build:
-   ```sh
-   cython --embed -3 quickbuttons.py
-   gcc -Os -I /path/to/python/include -o quickbuttons quickbuttons.c -lpython3.12
-   ```
-   (Adjust the Python include/library paths and version as needed.)
+## Requirements
 
-3. **Package with PyInstaller (optional, for data files):**
-   ```sh
-   pyinstaller --onefile --windowed --add-data "translations.json;." --add-data "themes.json;." quickbuttons.py
-   ```
-   Or use the batch/sh scripts as before.
-
----
+- Python 3.8 or higher
+- Tkinter (included with Python)
+- Additional dependencies listed in `requirements.txt`
 
 ## License
-MIT 
+
+MIT License - see LICENSE file for details.
+
+## Support
+
+For issues and questions, please use the [GitHub Issues](https://github.com/rikheijmann/quickbuttons/issues) page. 
+
+Feel free to recommend new features (such as automatically hiding the button pane), grouping items and suggesting new buttons.

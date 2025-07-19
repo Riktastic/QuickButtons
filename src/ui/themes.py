@@ -1,0 +1,121 @@
+"""Theme management and utilities."""
+
+import tkinter as tk
+import json
+from src.core.constants import THEMES_FILE
+from src.utils.logger import logger
+
+# Theme cache for performance
+_themes_cache = None
+_themes_cache_timestamp = None
+
+def apply_theme_recursive(widget, theme):
+    """Recursively apply theme colors to widget and its children."""
+    # Set background and foreground if possible
+    for key in ("bg", "background"):
+        if key in widget.config():
+            try:
+                widget.config(**{key: theme.get("dialog_bg", theme.get("bg", "#fff"))})
+            except Exception:
+                pass
+    for key in ("fg", "foreground"):
+        if key in widget.config():
+            try:
+                widget.config(**{key: theme.get("button_fg", "#000")})
+            except Exception:
+                pass
+    # Special handling for Entry/Text widgets
+    if isinstance(widget, (tk.Entry, tk.Text)):
+        try:
+            widget.config(insertbackground=theme.get("button_fg", "#000"))
+        except Exception:
+            pass
+    # Recursively apply to children
+    for child in widget.winfo_children():
+        apply_theme_recursive(child, theme)
+
+def load_themes():
+    """Load themes from JSON file with caching."""
+    global _themes_cache, _themes_cache_timestamp
+    
+    try:
+        # Check if file has been modified since last load
+        import os
+        current_timestamp = os.path.getmtime(THEMES_FILE) if os.path.exists(THEMES_FILE) else 0
+        
+        if _themes_cache is not None and _themes_cache_timestamp == current_timestamp:
+            return _themes_cache
+        
+        # Load themes from file
+        with open(THEMES_FILE, "r", encoding="utf-8") as f:
+            themes = json.load(f)
+            
+        # Cache the themes and timestamp
+        _themes_cache = themes
+        _themes_cache_timestamp = current_timestamp
+        
+        return themes
+        
+    except Exception as e:
+        logger.error(f"Failed to load themes: {e}")
+        # Fallback to basic themes
+        fallback_themes = {
+            "light": {
+                "bg": "#fff",
+                "button_bg": "#f0f0f0",
+                "button_fg": "#222",
+                "button_hover": "#e0e0e0",
+                "label_fg": "#333",
+                "dialog_bg": "#f8f8f8",
+                "topbar_bg": "#f5f5f5",
+                "tooltip_bg": "#ffffe0",
+                "tooltip_fg": "#000000",
+                "chat_bg": "#ffffff",
+                "chat_input_bg": "#f8f9fa",
+                "chat_user_bubble": "#e3f2fd",
+                "chat_assistant_bubble": "#f5f5f5",
+                "chat_user_text": "#000000",
+                "chat_assistant_text": "#000000",
+                "chat_time_color": "#999999",
+                "chat_name_color": "#666666",
+                "chat_send_button": "#2196f3",
+                "chat_send_button_hover": "#1976d2",
+                "chat_text_select_bg": "#005a9e",
+                "chat_text_select_fg": "#ffffff",
+                "scrollbar_bg": "#c0c0c0",
+                "scrollbar_trough": "#f0f0f0",
+                "scrollbar_arrow": "#666666"
+            },
+            "dark": {
+                "bg": "#181c20",
+                "button_bg": "#23272b",
+                "button_fg": "#f5f5f5",
+                "button_hover": "#2c3136",
+                "label_fg": "#e0e0e0",
+                "dialog_bg": "#23272b",
+                "topbar_bg": "#222",
+                "tooltip_bg": "#2c3136",
+                "tooltip_fg": "#f5f5f5",
+                "chat_bg": "#2a2e32",
+                "chat_input_bg": "#23272b",
+                "chat_user_bubble": "#1e3a5f",
+                "chat_assistant_bubble": "#3a3e42",
+                "chat_user_text": "#ffffff",
+                "chat_assistant_text": "#e0e0e0",
+                "chat_time_color": "#888888",
+                "chat_name_color": "#aaaaaa",
+                "chat_send_button": "#2196f3",
+                "chat_send_button_hover": "#1976d2",
+                "chat_text_select_bg": "#4a9eff",
+                "chat_text_select_fg": "#000000",
+                "scrollbar_bg": "#3a3e42",
+                "scrollbar_trough": "#2a2e32",
+                "scrollbar_arrow": "#666666"
+            }
+        }
+        
+        # Cache fallback themes
+        _themes_cache = fallback_themes
+        _themes_cache_timestamp = current_timestamp
+        
+        return fallback_themes 
